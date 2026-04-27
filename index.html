@@ -354,7 +354,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
       <button class="btn-sm2" onclick="renderChart('hourly')">時間帯別</button>
       <button class="btn-sm2" onclick="renderChart('weekday')">曜日別</button>
       <button class="btn-sm2" onclick="renderChart('item')">商品別</button>
-      <button class="btn-sm2" onclick="renderChart('pay')">支払別</button>
+      <button class="btn-sm2" onclick="renderChart('attr')">属性別</button>
       <button class="btn-sm2" onclick="renderChart('discount')">割引別</button>
     </div>
     <div id="chart-title" style="font-size:12px;font-weight:700;color:var(--accent2);margin-bottom:6px;"></div>
@@ -1753,7 +1753,7 @@ function renderChart(type){
   if(!area) return;
 
   let data = [];
-  const typeLabels = {daily:'日別売上',hourly:'時間帯別件数',weekday:'曜日別売上',item:'商品別売上',pay:'支払方法別売上',discount:'割引・予約サイト別件数'};
+  const typeLabels = {daily:'日別売上',hourly:'時間帯別件数',weekday:'曜日別売上',item:'商品別売上',attr:'属性別件数',discount:'割引・予約サイト別件数'};
   if(title) title.textContent = typeLabels[type]||'';
 
   if(type==='daily'){
@@ -1774,10 +1774,18 @@ function renderChart(type){
     const map={};
     filtered.forEach(r=>r.items.forEach(i=>{map[i.name]=(map[i.name]||0)+i.price*i.qty;}));
     data=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,v])=>({label:k,value:v,unit:'¥'}));
-  } else if(type==='pay'){
+  } else if(type==='attr'){
     const map={};
-    filtered.forEach(r=>{const k={cash:'現金',card:'カード',other:'電子'}[r.method]||r.method;map[k]=(map[k]||0)+r.total;});
-    data=Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:k,value:v,unit:'¥'}));
+    filtered.forEach(function(r){
+      if(!r.attrs) return;
+      Object.keys(r.attrs).forEach(function(key){
+        const vals=r.attrs[key];
+        if(!vals) return;
+        const arr=Array.isArray(vals)?vals:[vals];
+        arr.forEach(function(v){ if(v) map[v]=(map[v]||0)+1; });
+      });
+    });
+    data=Object.entries(map).sort(function(a,b){return b[1]-a[1];}).map(function(e){return {label:e[0],value:e[1],unit:'件'};});
   } else if(type==='discount'){
     const map={};
     filtered.forEach(r=>{
