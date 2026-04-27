@@ -112,6 +112,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 .sales-header h2{font-size:16px;font-weight:700;flex:1;}
 .btn-sm2{padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text);}
 .btn-sm2.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-sm2.active{background:var(--accent2);color:#fff;border-color:var(--accent2);}
 .date-filter{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
 .date-filter input{padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;}
 .summary-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
@@ -366,11 +367,12 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
   <!-- 明細ビュー -->
   <div id="sales-view-detail" style="flex:1;overflow-y:auto;padding:10px;">
     <div class="date-filter" style="margin-bottom:10px;">
-      <button class="btn-sm2 primary" onclick="setFilterToday()">📅 今日</button>
-      <input type="date" id="filter-from">
+      <button class="btn-sm2" id="filter-btn-today" onclick="setFilterToday()">📅 今日</button>
+      <button class="btn-sm2" id="filter-btn-yesterday" onclick="setFilterYesterday()">昨日</button>
+      <input type="date" id="filter-from" onchange="updateFilterBtnState()">
       <span style="font-size:12px">〜</span>
-      <input type="date" id="filter-to">
-      <button class="btn-sm2" onclick="renderSales()">絞込</button>
+      <input type="date" id="filter-to" onchange="updateFilterBtnState()">
+      <button class="btn-sm2" onclick="updateFilterBtnState();renderSales()">絞込</button>
       <button class="btn-sm2" onclick="clearFilter()">全件</button>
     </div>
     <div class="summary-cards" style="margin-bottom:10px;">
@@ -571,7 +573,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
       <button onclick="document.getElementById('sale-detail-modal').classList.remove('open')">閉じる</button>
 
       <button id="sale-detail-flag-btn" onclick="toggleSaleFlag()" style="background:#fde8e8;color:var(--red);border:1px solid #f5c0c0;">🔴 印</button>
-      <button onclick="saveSaleMemo()" style="background:#e8f4fd;color:var(--blue);border:1px solid #a0c8e8;">💾 メモ保存</button>
+      <button onclick="saveSaleChanges()" style="background:#e8f4fd;color:var(--blue);border:1px solid #a0c8e8;">💾 変更して保存</button>
       <button class="confirm" style="background:var(--red);border-color:var(--red);" onclick="deleteSaleFromDetail()">削除</button>
     </div>
   </div>
@@ -2062,12 +2064,12 @@ function toggleSaleFlag(){
   showToast(r.flagged?'🔴 印をつけました':'印を消しました');
 }
 
-function saveSaleMemo(){
+function saveSaleChanges(){
   const r=sales.find(s=>s.id===currentDetailSaleId); if(!r) return;
   r.memo=document.getElementById('sale-detail-memo').value;
   sv(KEYS.sales,sales);
   renderSales();
-  showToast('✓ メモを保存しました');
+  showToast('✓ 保存しました');
 }
 
 function deleteSaleFromDetail(){
@@ -2103,14 +2105,40 @@ function editSaleRecord(id){
   showToast('✓ カートに戻しました。修正後に再決済してください');
 }
 
+function localDateStr(d){
+  d=d||new Date();
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+function updateFilterBtnState(){
+  var t=localDateStr();
+  var y=localDateStr(new Date(Date.now()-86400000));
+  var from=document.getElementById('filter-from').value;
+  var to=document.getElementById('filter-to').value;
+  var tb=document.getElementById('filter-btn-today');
+  var yb=document.getElementById('filter-btn-yesterday');
+  if(tb) tb.classList.toggle('active',from===t&&to===t);
+  if(yb) yb.classList.toggle('active',from===y&&to===y);
+}
 function setFilterToday(){
-  const t=new Date().toISOString().slice(0,10);
-  document.getElementById("filter-from").value=t;
-  document.getElementById("filter-to").value=t;
+  var t=localDateStr();
+  document.getElementById('filter-from').value=t;
+  document.getElementById('filter-to').value=t;
+  updateFilterBtnState();
   renderSales();
 }
-
-function clearFilter(){document.getElementById('filter-from').value='';document.getElementById('filter-to').value='';renderSales();}
+function setFilterYesterday(){
+  var y=localDateStr(new Date(Date.now()-86400000));
+  document.getElementById('filter-from').value=y;
+  document.getElementById('filter-to').value=y;
+  updateFilterBtnState();
+  renderSales();
+}
+function clearFilter(){
+  document.getElementById('filter-from').value='';
+  document.getElementById('filter-to').value='';
+  updateFilterBtnState();
+  renderSales();
+}
 
 function exportCSV(){
   if(!sales.length){showToast('⚠ 売上データがありません','#c00');return;}
@@ -2837,10 +2865,10 @@ function toggleSaleFlag(){
   openSaleDetail(currentDetailSaleId);renderSales();
   showToast(r.flagged?'🔴 印をつけました':'印を消しました');
 }
-function saveSaleMemo(){
+function saveSaleChanges(){
   const r=sales.find(s=>s.id===currentDetailSaleId);if(!r)return;
   r.memo=document.getElementById('sale-detail-memo').value;
-  sv(KEYS.sales,sales);renderSales();showToast('✓ メモを保存しました');
+  sv(KEYS.sales,sales);renderSales();showToast('✓ 保存しました');
 }
 function deleteSaleFromDetail(){
   if(!currentDetailSaleId)return;
@@ -3416,6 +3444,13 @@ restoreFromIDB().then(()=>{
     }
   })();
   loadDisplaySettings();
+  // 売上明細フィルターを今日に初期化
+  var _t=localDateStr();
+  var _fe=document.getElementById('filter-from');
+  var _te=document.getElementById('filter-to');
+  if(_fe) _fe.value=_t;
+  if(_te) _te.value=_t;
+  updateFilterBtnState();
   renderCatFilterTabs();renderPOS();renderCart();renderDiscountBar();renderAttrs();renderHoldTabs();renderSettings();renderWeatherDisplay();
 });
 </script>
