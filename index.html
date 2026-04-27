@@ -2069,8 +2069,7 @@ function exportCSV(){
     var nats=Array.isArray(r.attrs&&r.attrs.nationality)?r.attrs.nationality:[r.attrs&&r.attrs.nationality].filter(Boolean);
     rows.push([fmtDate(r.datetime),dow,r.total,itemStr,dl,ml,ages.join('・'),nats.join('・'),weatherStr,r.id||'']);
   });
-  var csv=rows.map(function(r){return r.map(q).join(',');}).join('
-');
+  var csv=rows.map(function(r){return r.map(q).join(',');}).join('\n');
   var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='売上_'+ts+'.csv';a.click();
