@@ -746,7 +746,7 @@ const DEFAULT_ITEMS = [
   {id:'i_tree55',  name:'ツリーハウス昼 55分',     price:2000, cat:'cat_tree_day', stock:0, free_mura:false},
   {id:'i_tree115', name:'ツリーハウス昼 115分',    price:3000, cat:'cat_tree_day', stock:0, free_mura:false},
   {id:'i_tree1day',name:'ツリーハウス昼 1DAY',     price:4000, cat:'cat_tree_day', stock:0, free_mura:false},
-  {id:'i_bbq',     name:'BBQスペース',             price:3000, cat:'cat_bbq', stock:0, free_mura:false},
+  {id:'i_bbq',     name:'BBQスペース',             price:3000, cat:'cat_bbq', stock:0, free_mura:true},
   // 宿泊：ツリーハウス
   {id:'i_st_th',  name:'ツリーハウス',       price:12000,cat:'cat_stay_tree',stock:1, stay_prices:{1:14000,2:12000,3:10000,4:8000,5:8000}},
   // 宿泊：ドーム
@@ -1186,7 +1186,7 @@ function isStayItem(item){
 function getDiscountedPrice(item){
   if(activeDiscount==='mura'){
     if(item.cat==='cat_rental') return item.price;
-    if(item.free_mura) return 0;
+    if(item.id==='i_bbq' || item.free_mura) return 0;
     return Math.floor(item.price/2);
   }
   if(activeDiscount==='sou'){
@@ -1313,7 +1313,7 @@ function recalcCartPrices(){
       const item = items.find(i=>i.id===cartItem.id);
       const isRental = item?.cat==='cat_rental' || cartItem.cat==='cat_rental';
       if(isRental){ cartItem.price=cartItem.origPrice; cartItem.discounted=false; cartItem.paidLabel=''; }
-      else if(cartItem.free_mura){ cartItem.price=0; cartItem.discounted=true; cartItem.paidLabel=''; }
+      else if(cartItem.id==='i_bbq' || cartItem.free_mura){ cartItem.price=0; cartItem.discounted=true; cartItem.paidLabel=''; }
       else{ cartItem.price=Math.floor(cartItem.origPrice/2); cartItem.discounted=true; cartItem.paidLabel=''; }
     } else if(activeDiscount==='sou' && SOU_FREE_IDS.includes(cartItem.id)){
       cartItem.price=0; cartItem.discounted=true; cartItem.paidLabel=paidDisplaySettings.label;
