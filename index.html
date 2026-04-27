@@ -1747,6 +1747,25 @@ function getPeriodFiltered(){
   });
 }
 
+// 施設別人数を計算（日帰り・宿泊の主要施設カテゴリーのみ集計）
+function calcPeopleByFacility(filtered){
+  var facilityCatIds=['cat_walk','cat_tree_day','cat_bbq','cat_stay_tree','cat_stay_dome','cat_stay_tent','cat_stay_hm'];
+  var catNameMap={};
+  cats.forEach(function(c){ catNameMap[c.id]=c.name; });
+  var result={};
+  filtered.forEach(function(r){
+    r.items.forEach(function(i){
+      var catId=i.cat||'';
+      if(facilityCatIds.indexOf(catId)===-1) return;
+      var catName=catNameMap[catId]||catId;
+      var m=i.name.match(/[（(](\d+)人[）)]/);
+      var count=m?parseInt(m[1])*i.qty:i.qty;
+      result[catName]=(result[catName]||0)+count;
+    });
+  });
+  return result;
+}
+
 // 人数を計算: 商品名に（N人）があればN×数量、なければ数量をそのまま使う
 function calcPersonCount(filtered){
   var total=0;
@@ -1866,9 +1885,11 @@ function renderStatsCards(filtered){
     ages.forEach(a=>{ageMap2[a]=(ageMap2[a]||0)+1;});
     nats.forEach(n=>{natMap2[n]=(natMap2[n]||0)+1;});
   });
+  const facilityPeople=calcPeopleByFacility(filtered);
   statsEl.innerHTML=
     card('🛍 商品別',Object.entries(itemMap).sort((a,b)=>b[1].count-a[1].count).slice(0,6).map(([k,v])=>[k,v.count+'点']))+
     card('🏷 割引・予約',Object.entries(discMap).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件']))+
+    (Object.keys(facilityPeople).length?card('🏕 施設別人数',Object.entries(facilityPeople).map(([k,v])=>[k,v+'人'])):'')+
     (Object.keys(ageMap2).length?card('👤 年齢層',Object.entries(ageMap2).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件'])):'')+
     (Object.keys(natMap2).length?card('🌏 国籍',Object.entries(natMap2).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件'])):'');
 }
@@ -1919,8 +1940,10 @@ function renderSales(){
       ages.forEach(a=>{ageMapS[a]=(ageMapS[a]||0)+1;});
       nats.forEach(n=>{natMapS[n]=(natMapS[n]||0)+1;});
     });
+    const facilityPeopleS=calcPeopleByFacility(filtered);
     statsEl.innerHTML =
       makeStatCard('🛍 商品別販売数', Object.entries(itemMap).sort((a,b)=>b[1].count-a[1].count).slice(0,8).map(([k,v])=>[k,v.count+'点 ¥'+v.total.toLocaleString()]))+
+      (Object.keys(facilityPeopleS).length?makeStatCard('🏕 施設別人数',Object.entries(facilityPeopleS).map(([k,v])=>[k,v+'人'])):'')+
       (Object.keys(ageMapS).length?makeStatCard('👤 年齢層',Object.entries(ageMapS).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件'])):'')+
       (Object.keys(natMapS).length?makeStatCard('🌏 国籍',Object.entries(natMapS).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件'])):'');
   } else if(statsEl){
