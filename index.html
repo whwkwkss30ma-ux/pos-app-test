@@ -114,7 +114,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 .btn-sm2.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
 .date-filter{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
 .date-filter input{padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;}
-.summary-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.summary-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
 .summary-card{background:var(--surface);border-radius:10px;padding:12px;box-shadow:var(--shadow);}
 .summary-card .sc-label{font-size:10px;color:var(--text2);margin-bottom:3px;}
 .summary-card .sc-value{font-size:18px;font-weight:700;}
@@ -346,6 +346,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
     <div class="summary-cards" style="margin-bottom:10px;">
       <div class="summary-card"><div class="sc-label">売上合計</div><div class="sc-value" id="sum-total">¥0</div></div>
       <div class="summary-card"><div class="sc-label">件数</div><div class="sc-value" id="sum-count">0件</div></div>
+      <div class="summary-card"><div class="sc-label">人数</div><div class="sc-value" id="sum-people">0人</div></div>
       <div class="summary-card"><div class="sc-label">客単価</div><div class="sc-value" id="sum-avg">¥0</div></div>
     </div>
     <!-- グラフ切替 -->
@@ -375,6 +376,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
     <div class="summary-cards" style="margin-bottom:10px;">
       <div class="summary-card"><div class="sc-label">売上合計</div><div class="sc-value" id="sc-total">¥0</div></div>
       <div class="summary-card"><div class="sc-label">件数</div><div class="sc-value" id="sc-count">0件</div></div>
+      <div class="summary-card"><div class="sc-label">人数</div><div class="sc-value" id="sc-people">0人</div></div>
       <div class="summary-card"><div class="sc-label">客単価</div><div class="sc-value" id="sc-avg">¥0</div></div>
     </div>
     <div class="sales-table">
@@ -1745,15 +1747,30 @@ function getPeriodFiltered(){
   });
 }
 
+// 人数を計算: 商品名に（N人）があればN×数量、なければ数量をそのまま使う
+function calcPersonCount(filtered){
+  var total=0;
+  filtered.forEach(function(r){
+    r.items.forEach(function(i){
+      var m=i.name.match(/[（(](\d+)人[）)]/);
+      total+=m?parseInt(m[1])*i.qty:i.qty;
+    });
+  });
+  return total;
+}
+
 function renderSummary(){
   const filtered = getPeriodFiltered();
   const total = filtered.reduce((s,r)=>s+r.total,0);
   const count = filtered.length;
+  const people = calcPersonCount(filtered);
   const el_t=document.getElementById('sum-total');
   const el_c=document.getElementById('sum-count');
+  const el_p=document.getElementById('sum-people');
   const el_a=document.getElementById('sum-avg');
   if(el_t) el_t.textContent='¥'+total.toLocaleString();
   if(el_c) el_c.textContent=count+'件';
+  if(el_p) el_p.textContent=people+'人';
   if(el_a) el_a.textContent=count?'¥'+Math.round(total/count).toLocaleString():'¥0';
   renderChart(currentChartType);
   renderStatsCards(filtered);
@@ -1869,8 +1886,10 @@ function renderSales(){
     return ds<=to;
   });
   const total=filtered.reduce((s,r)=>s+r.total,0);
+  const people=calcPersonCount(filtered);
   document.getElementById('sc-total').textContent='¥'+total.toLocaleString();
   document.getElementById('sc-count').textContent=filtered.length+'件';
+  document.getElementById('sc-people').textContent=people+'人';
   document.getElementById('sc-avg').textContent=filtered.length?'¥'+Math.round(total/filtered.length).toLocaleString():'¥0';
 
   // ===== 統計 =====
