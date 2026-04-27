@@ -38,10 +38,10 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 .cat-section.dragging-cat{opacity:0.4;}
 .cat-section.drag-over-cat{border-top:3px solid var(--accent);}
 .cat-header{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border);}
-.cat-header-title{font-size:12px;font-weight:700;flex:1;}
+.cat-header-title{font-size:12px;font-weight:700;}
 .cat-drag-handle{font-size:14px;color:#bbb;cursor:grab;padding:0 2px;display:none;}
 .edit-mode .cat-drag-handle{display:block;}
-.cat-items{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.cat-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;}
 .item-btn{border-radius:10px;padding:10px 6px;cursor:pointer;text-align:center;transition:all 0.15s;box-shadow:var(--shadow);position:relative;user-select:none;font-family:inherit;border-width:2px;border-style:solid;}
 .item-btn:active{transform:scale(0.96);box-shadow:none;}
 .item-btn.dragging-item{opacity:0.4;}
@@ -1019,7 +1019,7 @@ function renderPOS(){
       header.className='cat-header';
       const catTimeInfo=getCatTimeInfo(cat.id);
       header.innerHTML='<span class="cat-drag-handle">⠿⠿</span><span class="cat-header-title" style="color:'+cat.text+'">'+cat.name+'</span>'+
-        (catTimeInfo?'<span style="font-size:11px;color:#555;margin-left:12px;font-weight:500;">'+catTimeInfo+'</span>':'');
+        (catTimeInfo?'<span style="font-size:11px;color:#555;margin-left:3em;font-weight:500;">'+catTimeInfo+'</span>':'');
       header.style.borderBottomColor=cat.border;
       const grid=document.createElement('div');grid.className='cat-items';
       catItems.forEach(item=>{
@@ -1048,7 +1048,7 @@ function renderPOS(){
           fSec.className='cat-section';fSec.dataset.catId=fId;fSec.style.flex='1';
           const fHdr=document.createElement('div');fHdr.className='cat-header';
           const fTI=getCatTimeInfo(fId);
-          fHdr.innerHTML='<span class="cat-header-title" style="color:'+fCat.text+'">'+fCat.name+'</span>'+(fTI?'<span style="font-size:11px;color:#555;margin-left:12px;font-weight:500;">'+fTI+'</span>':'');
+          fHdr.innerHTML='<span class="cat-header-title" style="color:'+fCat.text+'">'+fCat.name+'</span>'+(fTI?'<span style="font-size:11px;color:#555;margin-left:3em;font-weight:500;">'+fTI+'</span>':'');
           fHdr.style.borderBottomColor=fCat.border;
           const fGrid=document.createElement('div');fGrid.className='cat-items';
           fItems.forEach(function(item){fGrid.appendChild(makeItemBtn(item,fCat,fGrid));});
@@ -1072,7 +1072,7 @@ function renderPOS(){
       const header=document.createElement('div');
       header.className='cat-header';
       const cti=getCatTimeInfo(cat.id);
-      header.innerHTML='<span class="cat-header-title" style="color:'+cat.text+'">'+cat.name+'</span>'+(cti?'<span style="font-size:11px;color:#555;margin-left:12px;font-weight:500;">'+cti+'</span>':'');
+      header.innerHTML='<span class="cat-header-title" style="color:'+cat.text+'">'+cat.name+'</span>'+(cti?'<span style="font-size:11px;color:#555;margin-left:3em;font-weight:500;">'+cti+'</span>':'');
       header.style.borderBottomColor=cat.border;
       const grid=document.createElement('div');grid.className='cat-items';
       catItems.forEach(item=>{ grid.appendChild(makeItemBtn(item,cat,grid)); });
@@ -1090,7 +1090,7 @@ function renderPOS(){
           const fSec=document.createElement('div');fSec.className='cat-section';fSec.style.flex='1';
           const fHdr=document.createElement('div');fHdr.className='cat-header';
           const fTI=getCatTimeInfo(fId);
-          fHdr.innerHTML='<span class="cat-header-title" style="color:'+fCat.text+'">'+fCat.name+'</span>'+(fTI?'<span style="font-size:11px;color:#555;margin-left:12px;font-weight:500;">'+fTI+'</span>':'');
+          fHdr.innerHTML='<span class="cat-header-title" style="color:'+fCat.text+'">'+fCat.name+'</span>'+(fTI?'<span style="font-size:11px;color:#555;margin-left:3em;font-weight:500;">'+fTI+'</span>':'');
           fHdr.style.borderBottomColor=fCat.border;
           const fGrid=document.createElement('div');fGrid.className='cat-items';
           fItems.forEach(function(item){fGrid.appendChild(makeItemBtn(item,fCat,fGrid));});
@@ -2025,71 +2025,37 @@ function setFilterToday(){
 function clearFilter(){document.getElementById('filter-from').value='';document.getElementById('filter-to').value='';renderSales();}
 
 function exportCSV(){
-  if(!sales.length){showToast('\u26a0 売上データがありません','#c00');return;}
+  if(!sales.length){showToast('⚠ 売上データがありません','#c00');return;}
   const now=new Date();
   const ts=now.getFullYear()+('0'+(now.getMonth()+1)).slice(-2)+('0'+now.getDate()).slice(-2)+'_'+('0'+now.getHours()).slice(-2)+('0'+now.getMinutes()).slice(-2);
-  const q=v=>'"'+String(v===null||v===undefined?'':v).replace(/"/g,'""')+'"';
+  const q=function(v){return '"'+String(v===null||v===undefined?'':v).replace(/"/g,'""')+'"';};
   const DOW=['日','月','火','水','木','金','土'];
   function fmtDate(dt){
     const d=new Date(dt); if(isNaN(d)) return dt;
     const mo=d.getMonth()+1,day=d.getDate(),h=d.getHours(),mi=d.getMinutes();
-    return d.getFullYear()+'/'+(mo<10?'0':'')+mo+'/'+(day<10?'0':'')+day+' ('+DOW[d.getDay()]+') '+(h<10?'0':'')+h+':'+(mi<10?'0':'')+mi;
+    return d.getFullYear()+'/'+(mo<10?'0':'')+mo+'/'+(day<10?'0':'')+day+' ('+(DOW[d.getDay()]||'')+') '+(h<10?'0':'')+h+':'+(mi<10?'0':'')+mi;
   }
-  const weatherStr=(todayWeather||[]).map(k=>{const w=WEATHER_OPTIONS.find(x=>x.key===k);return w?w.label:'';}).filter(Boolean).join('/');
-  const rows1=[['日時','金額','商品内訳','割引','支払方法','天気']];
-  let grandTotal=0;
-  sales.forEach(r=>{
-    const itemStr=r.items.map(i=>i.name+(i.qty>1?'x'+i.qty:'')+'('+i.price*i.qty+'円)').join(' / ');
-    const ml={cash:'現金',card:'クレジットカード',other:'電子決済'}[r.method]||r.method;
-    const dl=r.discount?(ld(KEYS.discounts)||discountItems).find(d=>d.key===r.discount)?.label||r.discount:'';
-    rows1.push([fmtDate(r.datetime),r.total,itemStr,dl,ml,weatherStr]);
-    grandTotal+=r.total;
+  const weatherStr=(todayWeather||[]).map(function(k){var w=WEATHER_OPTIONS.find(function(x){return x.key===k;});return w?w.label:'';}).filter(Boolean).join('/');
+  // デバイス間で合算しやすいフラット形式（1行1売上）
+  const header=['日時','曜日','金額','商品内訳','割引','支払方法','年齢層','国籍','天気','売上ID'];
+  const rows=[header];
+  sales.forEach(function(r){
+    var d=new Date(r.datetime);
+    var dow=isNaN(d)?'':DOW[d.getDay()]||'';
+    var itemStr=r.items.map(function(i){return i.name+(i.qty>1?'x'+i.qty:'')+'('+i.price*i.qty+'円)';}).join(' / ');
+    var ml={cash:'現金',card:'クレジットカード',other:'電子決済'}[r.method]||r.method||'';
+    var discItems=ld(KEYS.discounts)||discountItems;
+    var dl=r.discount?(discItems.find(function(x){return x.key===r.discount;})||{}).label||r.discount:'';
+    var ages=Array.isArray(r.attrs&&r.attrs.age)?r.attrs.age:[r.attrs&&r.attrs.age].filter(Boolean);
+    var nats=Array.isArray(r.attrs&&r.attrs.nationality)?r.attrs.nationality:[r.attrs&&r.attrs.nationality].filter(Boolean);
+    rows.push([fmtDate(r.datetime),dow,r.total,itemStr,dl,ml,ages.join('・'),nats.join('・'),weatherStr,r.id||'']);
   });
-  rows1.push(['','','','','','']);
-  rows1.push(['売上総計','¥'+grandTotal.toLocaleString()+'（'+sales.length+'件）','','','','']);
-  const imap={};
-  sales.forEach(r=>r.items.forEach(i=>{
-    if(!imap[i.name]) imap[i.name]={qty:0,total:0};
-    imap[i.name].qty+=i.qty; imap[i.name].total+=i.price*i.qty;
-  }));
-  const rows2=[['商品名','数量','売上合計']];
-  Object.entries(imap).sort((a,b)=>b[1].total-a[1].total).forEach(([n,v])=>rows2.push([n,v.qty,v.total]));
-  const amap={},nmap={};
-  sales.forEach(r=>{
-    const ages=Array.isArray(r.attrs?.age)?r.attrs.age:[r.attrs?.age].filter(Boolean);
-    const nats=Array.isArray(r.attrs?.nationality)?r.attrs.nationality:[r.attrs?.nationality].filter(Boolean);
-    ages.forEach(a=>{amap[a]=(amap[a]||0)+1;});
-    nats.forEach(n=>{nmap[n]=(nmap[n]||0)+1;});
-  });
-  const rows3=[['属性種別','値','件数']];
-  Object.entries(amap).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>rows3.push(['年齢層',k,v]));
-  Object.entries(nmap).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>rows3.push(['国籍',k,v]));
-  let stayPersons=0,dayPersons=0;
-  const stayDetail={},dayDetail={};
-  sales.forEach(r=>{
-    r.items.forEach(i=>{
-      const it=items.find(x=>x.id===i.id||(i.id&&i.id.startsWith(x.id+'_')));
-      const isStay=it&&STAY_CAT_IDS.includes(it.cat);
-      const mP=i.name.match(/（(\d+)人）/);
-      const count=mP?parseInt(mP[1]):(i.qty||1);
-      if(isStay){stayPersons+=count;stayDetail[i.name]=(stayDetail[i.name]||0)+count;}
-      else if(it&&(it.cat==='cat_walk'||it.cat==='cat_tree_day'||it.cat==='cat_bbq'||it.cat==='cat_day')){
-        dayPersons+=count;dayDetail[i.name]=(dayDetail[i.name]||0)+count;
-      }
-    });
-  });
-  const rows4=[['区分','内訳','人数']];
-  Object.entries(stayDetail).forEach(([k,v])=>rows4.push(['宿泊',k,v]));
-  if(stayPersons>0) rows4.push(['宿泊合計','',stayPersons]);
-  Object.entries(dayDetail).forEach(([k,v])=>rows4.push(['日帰り',k,v]));
-  if(dayPersons>0) rows4.push(['日帰り合計','',dayPersons]);
-  if(!stayPersons&&!dayPersons) rows4.push(['','データなし','']);
-  const toCsv=rows=>rows.map(r=>r.map(q).join(',')).join('\n');
-  const csv=[toCsv(rows1),'',toCsv(rows2),'',toCsv(rows3),'',toCsv(rows4)].join('\n');
-  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='売上データ_'+ts+'.csv';a.click();
-  showToast('\u2713 CSVをダウンロードしました');
+  var csv=rows.map(function(r){return r.map(q).join(',');}).join('
+');
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='売上_'+ts+'.csv';a.click();
+  showToast('✓ CSVをダウンロードしました');
 }
 
 // 売上1件をGASに送信する行データに変換
