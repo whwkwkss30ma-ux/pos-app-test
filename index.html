@@ -203,9 +203,9 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
       <div id="attr-bar-wrap" style="background:var(--surface);border-top:1px solid var(--border);padding:4px 8px;flex-shrink:0;">
         <div onclick="toggleAttr()" style="display:flex;align-items:center;gap:4px;margin-bottom:3px;cursor:pointer;">
           <span style="font-size:18px;flex:1;line-height:1;">👤</span>
-          <span id="toggle-attr-btn" style="font-size:14px;color:#aaa;padding:4px 8px;line-height:1;">▼</span>
+          <span id="toggle-attr-btn" style="font-size:14px;color:#aaa;padding:4px 8px;line-height:1;">▲</span>
         </div>
-        <div id="attr-rows-inner" class="attr-rows"></div>
+        <div id="attr-rows-inner" class="attr-rows" style="display:none;"></div>
       </div>
       <div class="custom-price-bar">
         <input type="number" id="custom-price" placeholder="未登録商品の金額" min="0">
@@ -560,6 +560,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
   <div class="modal">
     <h3>売上詳細</h3>
     <div id="sale-detail-content"></div>
+    <div id="sale-detail-attrs" style="margin-top:10px;"></div>
     <div style="margin-top:10px;">
       <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">📝 メモ</label>
       <textarea id="sale-detail-memo" placeholder="メモを入力..." style="width:100%;min-height:60px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
@@ -765,7 +766,7 @@ const DEFAULT_ITEMS = [
   {id:'i_b01', name:'焚火台セット',        price:1500,cat:'cat_rental',stock:7, free_mura:false},
   {id:'i_b02', name:'スキレット＋鍋',      price:500, cat:'cat_rental',stock:6, free_mura:false},
   {id:'i_b03', name:'ローテーブル',        price:800, cat:'cat_rental',stock:4, free_mura:false},
-  {id:'i_b04', name:'チェア・ベンチ',      price:500, cat:'cat_rental',stock:5, free_mura:false},
+  {id:'i_b04', name:'ベンチ',              price:500, cat:'cat_rental',stock:5, free_mura:false},
   {id:'i_b05', name:'木炭 2kg',            price:500, cat:'cat_rental',stock:5, free_mura:false},
   {id:'i_b06', name:'ガスコンロ＋ガス',    price:1000, cat:'cat_rental',stock:3, free_mura:false},
   {id:'i_b06b',name:'バーナー',            price:700,cat:'cat_rental',stock:1, free_mura:false},
@@ -1406,6 +1407,10 @@ function clearCart(){
   holds[activeHoldIdx]=null;
   sv(KEYS.holds,holds);
   cart=[];selectedAttrs={age:[],nationality:[]};activeDiscount='';
+  attrVisible=false;
+  var ai=document.getElementById('attr-rows-inner'),ab=document.getElementById('toggle-attr-btn');
+  if(ai) ai.style.display='none';
+  if(ab) ab.textContent='▲';
   renderCart();renderAttrs();renderDiscountBar();renderPOS();renderHoldTabs();
 }
 
@@ -1703,6 +1708,15 @@ function dtToHour(datetime){
   if(!isNaN(d)) return d.getHours();
   return parseInt(datetime.slice(11,13)||'0');
 }
+function dtToShort(datetime){
+  if(!datetime) return '';
+  const d=new Date(datetime);
+  if(!isNaN(d)){
+    var m=d.getMonth()+1,dd=d.getDate(),h=d.getHours(),mi=d.getMinutes();
+    return ('0'+m).slice(-2)+'/'+('0'+dd).slice(-2)+' '+('0'+h).slice(-2)+':'+('0'+mi).slice(-2);
+  }
+  return datetime.slice(5,16).replace('T',' ');
+}
 function dtToDisplay(datetime){
   if(!datetime) return '';
   const d = new Date(datetime);
@@ -1799,11 +1813,11 @@ function renderChart(type){
 
   const maxVal = Math.max(...data.map(d=>d.value));
   const barColor = 'var(--accent)';
-  area.innerHTML = '<div style="min-width:'+Math.max(data.length*60,300)+'px;">'+
+  area.innerHTML = '<div style="min-width:'+Math.max(data.length*60,300)+'px;display:flex;align-items:flex-end;gap:2px;">'+
     data.map(d=>{
       const pct = maxVal>0 ? Math.max(2, Math.round(d.value/maxVal*100)) : 0;
       const label = d.unit==='¥' ? '¥'+d.value.toLocaleString() : d.value+d.unit;
-      return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:50px;display:inline-flex;vertical-align:bottom;margin:0 2px;">'+
+      return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:50px;margin:0 2px;">'+
         '<div style="font-size:10px;font-weight:600;color:var(--accent2)">'+label+'</div>'+
         '<div style="width:36px;height:'+Math.round(pct*1.2)+'px;background:var(--accent);border-radius:4px 4px 0 0;min-height:4px;"></div>'+
         '<div style="font-size:9px;color:var(--text2);text-align:center;max-width:60px;word-break:break-all;line-height:1.3;">'+d.label+'</div>'+
@@ -1901,16 +1915,16 @@ function renderSales(){
     const itemStr=r.items.map(i=>i.name+(i.qty>1?'×'+i.qty:'')).join('、');
     const methodLabel={cash:'現金',card:'カード',other:'電子'}[r.method]||r.method;
     const discLabel=r.discount==='mura'?'村内半額':r.discount==='stay_guest'?'宿泊者':r.discount?r.discount:'';
-    // 宿泊商品を含む売上かどうか判定
-    const hasStayItem = r.items.some(i=>{
-      if(i.isStay) return true;
-      const it=items.find(x=>x.id===i.id);
-      return it && STAY_CAT_IDS.includes(it.cat);
-    });
+    const attrParts=[];
+    if(r.attrs){Object.keys(r.attrs).forEach(function(k){const v=r.attrs[k];if(Array.isArray(v)&&v.length)attrParts.push(v.join('・'));else if(v)attrParts.push(v);});}
+    const attrStr=attrParts.join(' ');
     tr.innerHTML=
       '<td style="text-align:center;font-size:14px;cursor:pointer;" onclick="event.stopPropagation();quickToggleFlag(\''+r.id+'\',this)">'+(r.flagged?'🔴':'⚪')+'</td>'+
-      '<td style="white-space:nowrap;font-size:10px">'+dtToDisplay(r.datetime)+'</td>'+
-      '<td style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+itemStr+'</td>'+
+      '<td style="white-space:nowrap;font-size:10px">'+dtToShort(r.datetime)+'</td>'+
+      '<td style="font-size:10px;min-width:160px;max-width:220px;">'+
+        '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+itemStr+'</div>'+
+        (attrStr?'<div style="font-size:9px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+attrStr+'</div>':'')+
+      '</td>'+
       '<td style="font-size:10px">'+discLabel+(r.paid?'<span style="color:var(--blue)"> 済</span>':'')+'</td>'+
       '<td style="font-size:10px">'+methodLabel+'</td>'+
       '<td style="font-weight:600;text-align:right;font-size:11px">¥'+r.total.toLocaleString()+'</td>'+
@@ -2637,7 +2651,7 @@ function saveDiscountSettings(){
 
 
 // ===== 属性・割引の表示/非表示 =====
-let attrVisible = true;
+let attrVisible = false;
 let discountVisible = true;
 function toggleAttr(){
   attrVisible = !attrVisible;
@@ -2737,8 +2751,32 @@ function openSaleDetail(saleId){
     '</div>';
   document.getElementById('sale-detail-memo').value=r.memo||'';
   const fb=document.getElementById('sale-detail-flag-btn');
-  if(fb) fb.style.background=r.flagged?'#fcc':'#fde8e8';
+  if(fb){ fb.textContent=r.flagged?'🔴 印を消す':'🔴 印をつける'; fb.style.background=r.flagged?'#fde8e8':'#f9f9f9'; }
+  // 属性選択UI
+  const attrsEl=document.getElementById('sale-detail-attrs');
+  if(attrsEl){
+    var ah='<div style="font-size:11px;color:var(--text2);margin-bottom:4px;">👤 属性</div>';
+    Object.keys(ATTRS).forEach(function(key){
+      const arr=(r.attrs&&r.attrs[key])||[];
+      ATTRS[key].forEach(function(v){
+        const active=Array.isArray(arr)?arr.includes(v):arr===v;
+        ah+='<button onclick="setSaleDetailAttr(\''+key+'\',\''+v+'\')" style="font-size:10px;padding:3px 7px;border-radius:6px;border:1px solid '+(active?'var(--accent2)':'var(--border)')+';background:'+(active?'var(--accent2)':'#fff')+';color:'+(active?'#fff':'var(--text2)')+';margin:2px;cursor:pointer;">'+v+'</button>';
+      });
+      ah+='<br>';
+    });
+    attrsEl.innerHTML=ah;
+  }
   document.getElementById('sale-detail-modal').classList.add('open');
+}
+function setSaleDetailAttr(key,val){
+  const r=sales.find(s=>s.id===currentDetailSaleId);if(!r)return;
+  if(!r.attrs) r.attrs={};
+  if(!r.attrs[key]) r.attrs[key]=[];
+  if(!Array.isArray(r.attrs[key])) r.attrs[key]=[r.attrs[key]];
+  const idx=r.attrs[key].indexOf(val);
+  if(idx===-1) r.attrs[key].push(val); else r.attrs[key].splice(idx,1);
+  sv(KEYS.sales,sales);
+  openSaleDetail(currentDetailSaleId);
 }
 function toggleSaleFlag(){
   const r=sales.find(s=>s.id===currentDetailSaleId);if(!r)return;
@@ -3303,6 +3341,27 @@ restoreFromIDB().then(()=>{
   siteNames = ld(KEYS.sites) || {};
   ATTRS = ld('pos_attrs') || JSON.parse(JSON.stringify(DEFAULT_ATTRS));
   holds = ld(KEYS.holds) || [null,null,null,null,null,null,null,null,null,null];
+  // 名称移行: チェア・ベンチ → ベンチ
+  var needSave=false;
+  items.forEach(function(it){if(it.id==='i_b04'&&it.name==='チェア・ベンチ'){it.name='ベンチ';needSave=true;}});
+  if(needSave) sv(KEYS.items,items);
+  // 寝袋順序修正: 夏用(i_b19)を冬用(i_b20)の前に
+  (function(){
+    var i19=items.findIndex(function(i){return i.id==='i_b19';}),i20=items.findIndex(function(i){return i.id==='i_b20';});
+    if(i19!==-1&&i20!==-1&&i19>i20){
+      var b20=items.splice(i20,1)[0];
+      items.splice(items.findIndex(function(i){return i.id==='i_b19';})+1,0,b20);
+      sv(KEYS.items,items);
+    }
+    if(itemOrder){
+      var o19=itemOrder.indexOf('i_b19'),o20=itemOrder.indexOf('i_b20');
+      if(o19!==-1&&o20!==-1&&o19>o20){
+        itemOrder.splice(o20,1);
+        itemOrder.splice(itemOrder.indexOf('i_b19')+1,0,'i_b20');
+        sv(KEYS.itemOrder,itemOrder);
+      }
+    }
+  })();
   loadDisplaySettings();
   renderCatFilterTabs();renderPOS();renderCart();renderDiscountBar();renderAttrs();renderHoldTabs();renderSettings();renderWeatherDisplay();
 });
