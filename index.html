@@ -1886,8 +1886,31 @@ function renderStatsCards(filtered){
     nats.forEach(n=>{natMap2[n]=(natMap2[n]||0)+1;});
   });
   const facilityPeople=calcPeopleByFacility(filtered);
+  // 商品別: レジ順（施設系）→ 数量順でソート＋折りたたみ
+  var posMap={};
+  items.forEach(function(it,idx){posMap[it.name]=idx;});
+  var sortedItemEntries=Object.entries(itemMap).sort(function(a,b){
+    var pa=posMap[a[0]]!==undefined?posMap[a[0]]:99999;
+    var pb=posMap[b[0]]!==undefined?posMap[b[0]]:99999;
+    if(pa!==pb)return pa-pb;
+    return b[1].count-a[1].count;
+  });
+  var ITEM_CUTOFF=8;
+  var rowFn=function(k,v){return '<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #f5f5f5;"><span style="color:var(--text2)">'+k+'</span><span style="font-weight:600">'+v+'</span></div>';};
+  var itemCardHtml='<div style="background:#fff;border-radius:10px;padding:10px;box-shadow:var(--shadow);">'+
+    '<div style="font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:6px;">🛍 商品別</div>'+
+    sortedItemEntries.slice(0,ITEM_CUTOFF).map(function(e){return rowFn(e[0],e[1].count+'点');}).join('');
+  if(sortedItemEntries.length>ITEM_CUTOFF){
+    var hiddenCount=sortedItemEntries.length-ITEM_CUTOFF;
+    itemCardHtml+=
+      '<div id="sum-item-more" style="display:none;">'+
+        sortedItemEntries.slice(ITEM_CUTOFF).map(function(e){return rowFn(e[0],e[1].count+'点');}).join('')+
+      '</div>'+
+      '<button onclick="var d=document.getElementById(\'sum-item-more\');var s=d.style.display===\'none\';d.style.display=s?\'\':\'none\';this.textContent=s?\'▲ 折りたたむ\':\'▼ 全て表示 ('+hiddenCount+'件)\'" style="margin-top:6px;font-size:10px;color:var(--accent2);background:none;border:none;cursor:pointer;padding:2px 0;font-family:inherit;">▼ 全て表示 ('+hiddenCount+'件)</button>';
+  }
+  itemCardHtml+='</div>';
   statsEl.innerHTML=
-    card('🛍 商品別',Object.entries(itemMap).sort((a,b)=>b[1].count-a[1].count).slice(0,6).map(([k,v])=>[k,v.count+'点']))+
+    itemCardHtml+
     card('🏷 割引・予約',Object.entries(discMap).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件']))+
     (Object.keys(facilityPeople).length?card('🏕 施設別人数',Object.entries(facilityPeople).map(([k,v])=>[k,v+'人'])):'')+
     (Object.keys(ageMap2).length?card('👤 年齢層',Object.entries(ageMap2).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件'])):'')+
@@ -1941,8 +1964,31 @@ function renderSales(){
       nats.forEach(n=>{natMapS[n]=(natMapS[n]||0)+1;});
     });
     const facilityPeopleS=calcPeopleByFacility(filtered);
+    // 商品別: レジ順（施設系）→ 数量順でソート＋折りたたみ
+    var posMapS={};
+    items.forEach(function(it,idx){posMapS[it.name]=idx;});
+    var sortedItemEntriesS=Object.entries(itemMap).sort(function(a,b){
+      var pa=posMapS[a[0]]!==undefined?posMapS[a[0]]:99999;
+      var pb=posMapS[b[0]]!==undefined?posMapS[b[0]]:99999;
+      if(pa!==pb)return pa-pb;
+      return b[1].count-a[1].count;
+    });
+    var CUTOFF_S=8;
+    var rowFnS=function(k,v){return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5;"><span style="color:var(--text2);">'+k+'</span><span style="font-weight:600;">'+v+'</span></div>';};
+    var itemCardS='<div style="background:#fff;border-radius:10px;padding:12px;box-shadow:var(--shadow);">'+
+      '<div style="font-size:12px;font-weight:700;color:var(--accent2);margin-bottom:8px;">🛍 商品別販売数</div>'+
+      sortedItemEntriesS.slice(0,CUTOFF_S).map(function(e){return rowFnS(e[0],e[1].count+'点 ¥'+e[1].total.toLocaleString());}).join('');
+    if(sortedItemEntriesS.length>CUTOFF_S){
+      var hiddenCountS=sortedItemEntriesS.length-CUTOFF_S;
+      itemCardS+=
+        '<div id="sales-item-more" style="display:none;">'+
+          sortedItemEntriesS.slice(CUTOFF_S).map(function(e){return rowFnS(e[0],e[1].count+'点 ¥'+e[1].total.toLocaleString());}).join('')+
+        '</div>'+
+        '<button onclick="var d=document.getElementById(\'sales-item-more\');var s=d.style.display===\'none\';d.style.display=s?\'\':\'none\';this.textContent=s?\'▲ 折りたたむ\':\'▼ 全て表示 ('+hiddenCountS+'件)\'" style="margin-top:6px;font-size:10px;color:var(--accent2);background:none;border:none;cursor:pointer;padding:2px 0;font-family:inherit;">▼ 全て表示 ('+hiddenCountS+'件)</button>';
+    }
+    itemCardS+='</div>';
     statsEl.innerHTML =
-      makeStatCard('🛍 商品別販売数', Object.entries(itemMap).sort((a,b)=>b[1].count-a[1].count).slice(0,8).map(([k,v])=>[k,v.count+'点 ¥'+v.total.toLocaleString()]))+
+      itemCardS+
       (Object.keys(facilityPeopleS).length?makeStatCard('🏕 施設別人数',Object.entries(facilityPeopleS).map(([k,v])=>[k,v+'人'])):'')+
       (Object.keys(ageMapS).length?makeStatCard('👤 年齢層',Object.entries(ageMapS).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件'])):'')+
       (Object.keys(natMapS).length?makeStatCard('🌏 国籍',Object.entries(natMapS).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v+'件'])):'');
