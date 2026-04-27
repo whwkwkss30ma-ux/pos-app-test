@@ -1768,11 +1768,13 @@ function calcPeopleByFacility(filtered){
   return result;
 }
 
-// 人数を計算: 商品名に（N人）があればN×数量、なければ数量をそのまま使う
+// 人数を計算: 施設カテゴリーのみ対象。（N人）があればN×数量、なければ数量をそのまま使う
 function calcPersonCount(filtered){
+  var facilityCatIds=['cat_walk','cat_tree_day','cat_bbq','cat_stay_tree','cat_stay_dome','cat_stay_tent','cat_stay_hm'];
   var total=0;
   filtered.forEach(function(r){
     r.items.forEach(function(i){
+      if(facilityCatIds.indexOf(i.cat||'')===-1) return;
       var m=i.name.match(/[（(](\d+)人[）)]/);
       total+=m?parseInt(m[1])*i.qty:i.qty;
     });
