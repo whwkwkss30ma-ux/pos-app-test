@@ -2142,6 +2142,18 @@ function clearFilter(){
   renderSales();
 }
 
+// 1件の売上レコードから人数を計算（施設カテゴリーのみ）
+function calcSalePersons(r){
+  var facilityCatIds=['cat_walk','cat_tree_day','cat_bbq','cat_stay_tree','cat_stay_dome','cat_stay_tent','cat_stay_hm'];
+  var total=0;
+  (r.items||[]).forEach(function(i){
+    if(facilityCatIds.indexOf(i.cat||'')===-1) return;
+    var m=i.name.match(/[（(](\d+)人[）)]/);
+    total+=m?parseInt(m[1])*i.qty:i.qty;
+  });
+  return total;
+}
+
 function exportCSV(){
   if(!sales.length){showToast('⚠ 売上データがありません','#c00');return;}
   const now=new Date();
@@ -2155,18 +2167,19 @@ function exportCSV(){
   }
   const weatherStr=(todayWeather||[]).map(function(k){var w=WEATHER_OPTIONS.find(function(x){return x.key===k;});return w?w.label:'';}).filter(Boolean).join('/');
   // デバイス間で合算しやすいフラット形式（1行1売上）
-  const header=['日時','曜日','金額','商品内訳','割引','支払方法','年齢層','国籍','天気','売上ID'];
+  const header=['日時','曜日','金額','人数','商品内訳','割引','支払方法','年齢層','国籍','天気','売上ID'];
   const rows=[header];
   sales.forEach(function(r){
     var d=new Date(r.datetime);
     var dow=isNaN(d)?'':DOW[d.getDay()]||'';
+    var persons=calcSalePersons(r);
     var itemStr=r.items.map(function(i){return i.name+(i.qty>1?'x'+i.qty:'')+'('+i.price*i.qty+'円)';}).join(' / ');
     var ml={cash:'現金',card:'クレジットカード',other:'電子決済'}[r.method]||r.method||'';
     var discItems=ld(KEYS.discounts)||discountItems;
     var dl=r.discount?(discItems.find(function(x){return x.key===r.discount;})||{}).label||r.discount:'';
     var ages=Array.isArray(r.attrs&&r.attrs.age)?r.attrs.age:[r.attrs&&r.attrs.age].filter(Boolean);
     var nats=Array.isArray(r.attrs&&r.attrs.nationality)?r.attrs.nationality:[r.attrs&&r.attrs.nationality].filter(Boolean);
-    rows.push([fmtDate(r.datetime),dow,r.total,itemStr,dl,ml,ages.join('・'),nats.join('・'),weatherStr,r.id||'']);
+    rows.push([fmtDate(r.datetime),dow,r.total,persons,itemStr,dl,ml,ages.join('・'),nats.join('・'),weatherStr,r.id||'']);
   });
   var csv=rows.map(function(r){return r.map(q).join(',');}).join('\n');
   var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
