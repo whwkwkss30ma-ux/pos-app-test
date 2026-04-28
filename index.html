@@ -852,6 +852,14 @@ const DEFAULT_ITEMS = [
 let cats = ld(KEYS.cats) || DEFAULT_CATS;
 let items = ld(KEYS.items) || DEFAULT_ITEMS;
 let sales = ld(KEYS.sales) || [];
+// 既存売上データにデバイスIDを補完（初回のみ）
+(function(){
+  var did=localStorage.getItem('pos_device_id');
+  if(!did) return;
+  var changed=false;
+  sales.forEach(function(s){if(!s.device){s.device=did;changed=true;}});
+  if(changed) sv(KEYS.sales,sales);
+})();
 let siteNames = ld(KEYS.sites) || {s1:'',s2:'',s3:''};
 
 // 割引・予約サイト設定
