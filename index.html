@@ -501,6 +501,14 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
   <div class="settings-section">
     <h3>📊 スプレッドシート連携</h3>
     <div class="form-row"><label>GAS WebアプリURL</label><input type="text" id="pos-gas-url" placeholder="https://script.google.com/macros/s/..."></div>
+    <div class="form-row" style="margin-top:10px;">
+      <label>端末名（スプレッドシートの●に表示）</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="pos-device-name" placeholder="例：レジ1、カウンター" style="flex:1;">
+        <button class="btn-primary2" onclick="saveDeviceName()">保存</button>
+      </div>
+      <div id="pos-device-id-display" style="font-size:10px;color:var(--text2);margin-top:4px;"></div>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
       <button class="btn-primary2" onclick="savePosGasUrl()">URLを保存</button>
       <button class="btn-sm2" style="background:#2d5016;color:#fff;padding:8px 14px;" onclick="testGasConnection()">🔗 接続テスト</button>
@@ -926,7 +934,7 @@ function switchTab(t) {
     }
     switchSalesTab(currentSalesTab||'detail');
   }
-  if (t==='settings-pos') renderSettings();
+  if (t==='settings-pos') { renderSettings(); initDeviceNameField(); }
   if (t==='agreement') loadAgreementText();
   if (t==='timer') initTimer();
 }
@@ -1640,6 +1648,7 @@ function confirmPayment(){
     items:cart.map(i=>({...i})),total,method:currentPayMethod,
     attrs:{...selectedAttrs},discount:activeDiscount,paid:isPaid,
     device:localStorage.getItem('pos_device_id')||'',
+    device_name:localStorage.getItem('pos_device_name')||'',
   };
   sales.push(record);sv(KEYS.sales,sales);
   lastSaleId=record.id;
@@ -2226,7 +2235,7 @@ function saleToRows(sale){
       isFirst?weatherStr:'',         // N: 天気
       isFirst?sale.memo||'':'',     // O: メモ
       sale.id,                      // P: 売上ID（全行。重複排除用）
-      isFirst?sale.device||'':'',   // Q: デバイスID
+      isFirst?sale.device_name||sale.device||'':'',   // Q: 端末名
     ];
   });
 }
@@ -2330,6 +2339,28 @@ async function testGasConnection(){
   }
 }
 
+function saveDeviceName(){
+  const el=document.getElementById('pos-device-name');
+  if(!el) return;
+  const name=el.value.trim();
+  if(!name){showToast('⚠ 端末名を入力してください','#c00');return;}
+  localStorage.setItem('pos_device_name',name);
+  // 既存売上データの端末名も更新
+  var did=localStorage.getItem('pos_device_id')||'';
+  var changed=false;
+  sales.forEach(function(s){if(s.device===did){s.device_name=name;changed=true;}});
+  if(changed) sv(KEYS.sales,sales);
+  showToast('✅ 端末名を保存しました',null,3000);
+  initDeviceNameField();
+}
+function initDeviceNameField(){
+  var did=localStorage.getItem('pos_device_id')||'';
+  var dname=localStorage.getItem('pos_device_name')||'';
+  var el=document.getElementById('pos-device-name');
+  var disp=document.getElementById('pos-device-id-display');
+  if(el) el.value=dname;
+  if(disp) disp.textContent='端末ID: '+did;
+}
 function savePosGasUrl(){
   const el=document.getElementById('pos-gas-url');
   if(!el) return;
