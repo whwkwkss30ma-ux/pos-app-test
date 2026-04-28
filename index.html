@@ -695,6 +695,8 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 <script>
 // ===== バージョン種別（main / test） =====
 const APP_VERSION_TYPE = 'test';
+// Netlify時代の更新回数オフセット
+const APP_VERSION_OFFSET = 90;
 
 // ===== ストレージ =====
 const DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbwO3nrFBG7gDCwbRALgqReIO4Axyfm5mjfgIk9VLyh5o80_qSx8y70SqtYkuCtCpe8BXA/exec';
@@ -2383,7 +2385,7 @@ function initVersionInfo(){
         var jst=new Date(d.getTime()+9*60*60*1000);
         dateStr=jst.getUTCFullYear()+'/'+(jst.getUTCMonth()+1).toString().padStart(2,'0')+'/'+jst.getUTCDate().toString().padStart(2,'0')+' '+jst.getUTCHours().toString().padStart(2,'0')+':'+jst.getUTCMinutes().toString().padStart(2,'0');
       }
-      var verStr=count?'ver.'+count:'ver.-';
+      var verStr=count?'ver.'+(count+APP_VERSION_OFFSET):'ver.-';
       var b=document.getElementById('pos-version-info');
       if(!b) return;
       b.innerHTML='<div style="font-size:12px;color:var(--accent);font-weight:700;">POSレジ '+verStr+'</div>'
