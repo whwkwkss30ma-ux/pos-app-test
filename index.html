@@ -571,9 +571,8 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
     </div>
     <div class="modal-btns" style="flex-wrap:wrap;gap:6px;">
       <button onclick="document.getElementById('sale-detail-modal').classList.remove('open')">閉じる</button>
-
-      <button id="sale-detail-flag-btn" onclick="toggleSaleFlag()" style="background:#fde8e8;color:var(--red);border:1px solid #f5c0c0;">🔴 印</button>
       <button onclick="saveSaleChanges()" style="background:#e8f4fd;color:var(--blue);border:1px solid #a0c8e8;">💾 変更して保存</button>
+      <button id="sale-detail-flag-btn" onclick="toggleSaleFlag()" style="background:#fde8e8;color:var(--red);border:1px solid #f5c0c0;">🔴 印</button>
       <button class="confirm" style="background:var(--red);border-color:var(--red);" onclick="deleteSaleFromDetail()">削除</button>
     </div>
   </div>
@@ -2148,7 +2147,7 @@ function exportCSV(){
   const ts=now.getFullYear()+('0'+(now.getMonth()+1)).slice(-2)+('0'+now.getDate()).slice(-2)+'_'+('0'+now.getHours()).slice(-2)+('0'+now.getMinutes()).slice(-2);
   const q=function(v){return '"'+String(v===null||v===undefined?'':v).replace(/"/g,'""')+'"';};
   // GASシートと同じ列構成（1行1商品）でエクスポート
-  const header=['売上ID','日時','曜日','売上合計','商品名','カテゴリ','数量','単価','小計','人数','割引','支払方法','年齢層','国籍','天気'];
+  const header=['日時','曜日','売上合計','商品名','カテゴリ','数量','単価','小計','人数','割引','支払方法','年齢層','国籍','天気','売上ID'];
   var allRows=[header];
   sales.forEach(function(sale){
     saleToRows(sale).forEach(function(row){allRows.push(row);});
@@ -2161,7 +2160,7 @@ function exportCSV(){
 }
 
 // 売上1件を複数行に変換（1行1商品 — CSV・GAS共通フォーマット）
-// 列: 売上ID, 日時, 曜日, 売上合計, 商品名, カテゴリ, 数量, 単価, 小計, 人数, 割引, 支払方法, 年齢層, 国籍, 天気
+// 列: 日時, 曜日, 売上合計, 商品名, カテゴリ, 数量, 単価, 小計, 人数, 割引, 支払方法, 年齢層, 国籍, 天気, 売上ID
 function saleToRows(sale){
   var FACILITY_CATS=['cat_walk','cat_tree_day','cat_bbq','cat_stay_tree','cat_stay_dome','cat_stay_tent','cat_stay_hm'];
   var discountItems2=ld(KEYS.discounts)||discountItems;
@@ -2189,21 +2188,21 @@ function saleToRows(sale){
     var m=i.name.match(/[（(](\d+)人[）)]/);
     var persons=isF?(m?parseInt(m[1])*i.qty:i.qty):0;
     return [
-      sale.id,         // A: 売上ID
-      dtStr,           // B: 日時
-      dow,             // C: 曜日
-      sale.total,      // D: 売上合計
-      i.name,          // E: 商品名
-      catName,         // F: カテゴリ
-      i.qty,           // G: 数量
-      i.price,         // H: 単価
-      i.price*i.qty,   // I: 小計
-      persons,         // J: 人数
-      discLabel,       // K: 割引
-      method,          // L: 支払方法
-      ageStr,          // M: 年齢層
-      natStr,          // N: 国籍
-      weatherStr,      // O: 天気
+      dtStr,           // A: 日時
+      dow,             // B: 曜日
+      sale.total,      // C: 売上合計
+      i.name,          // D: 商品名
+      catName,         // E: カテゴリ
+      i.qty,           // F: 数量
+      i.price,         // G: 単価
+      i.price*i.qty,   // H: 小計
+      persons,         // I: 人数
+      discLabel,       // J: 割引
+      method,          // K: 支払方法
+      ageStr,          // L: 年齢層
+      natStr,          // M: 国籍
+      weatherStr,      // N: 天気
+      sale.id,         // O: 売上ID
     ];
   });
 }
@@ -2840,6 +2839,7 @@ function openSaleDetail(saleId){
   const discLabel=r.discount?(discountItems2.find(d=>d.key===r.discount)?.label||r.discount):'なし';
   const iRows=(r.items||[]).map(i=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5;"><span>'+i.name+(i.qty>1?' ×'+i.qty:'')+'</span><span style="font-weight:600;">¥'+(i.price*i.qty).toLocaleString()+'</span></div>').join('');
   document.getElementById('sale-detail-content').innerHTML=
+    '<div style="font-size:10px;color:var(--text2);margin-bottom:6px;word-break:break-all;">ID: '+r.id+'</div>'+
     '<div style="background:#f9f9f9;border-radius:8px;padding:12px;font-size:13px;">'+
     '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text2);">日時</span><span>'+dtToDisplay(r.datetime)+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text2);">支払</span><span style="font-weight:600;">'+mLabel+(r.paid?' <span style="font-size:11px;color:var(--blue);">支払済</span>':'')+'</span></div>'+
