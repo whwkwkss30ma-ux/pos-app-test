@@ -320,7 +320,15 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
   <div class="sales-header">
     <h2>📊 売上管理</h2>
     <button class="btn-sm2" onclick="exportCSV()">📥 CSV</button>
-    <button class="btn-sm2 primary" onclick="syncSales()">📊 同期</button>
+    <div style="position:relative;display:inline-block;">
+      <button class="btn-sm2 primary" onclick="toggleSyncMenu(event)">📊 同期 ▾</button>
+      <div id="sync-menu" style="display:none;position:absolute;right:0;top:32px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);z-index:300;min-width:110px;padding:4px 0;">
+        <button onclick="doSync('today')" style="display:block;width:100%;padding:8px 14px;border:none;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left;">今日分</button>
+        <button onclick="doSync('yesterday')" style="display:block;width:100%;padding:8px 14px;border:none;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left;">昨日分</button>
+        <button onclick="doSync('filter')" style="display:block;width:100%;padding:8px 14px;border:none;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left;">絞込分</button>
+        <button onclick="doSync('all')" style="display:block;width:100%;padding:8px 14px;border:none;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left;">全件</button>
+      </div>
+    </div>
   </div>
   <!-- 売上サブタブ -->
   <div style="display:flex;border-bottom:1px solid var(--border);background:#fff;flex-shrink:0;">
@@ -2070,6 +2078,7 @@ function saveSaleChanges(){
   r.memo=document.getElementById('sale-detail-memo').value;
   sv(KEYS.sales,sales);
   renderSales();
+  autoSyncUpdatedSale(r);
   showToast('✓ 保存しました');
 }
 
@@ -2182,53 +2191,88 @@ function saleToRows(sale){
   var catNameMap={};
   cats.forEach(function(c){catNameMap[c.id]=c.name;});
   var weatherStr=(todayWeather||[]).map(function(k){var w=WEATHER_OPTIONS.find(function(x){return x.key===k;});return w?w.label:'';}).filter(Boolean).join('/');
-  return (sale.items||[]).map(function(i){
+  return (sale.items||[]).map(function(i,idx){
+    var isFirst=idx===0;
     var catName=catNameMap[i.cat||'']||i.cat||'';
     var isF=FACILITY_CATS.indexOf(i.cat||'')!==-1;
     var m=i.name.match(/[（(](\d+)人[）)]/);
     var persons=isF?(m?parseInt(m[1])*i.qty:i.qty):0;
     return [
-      dtStr,           // A: 日時
-      dow,             // B: 曜日
-      sale.total,      // C: 売上合計
-      i.name,          // D: 商品名
-      catName,         // E: カテゴリ
-      i.qty,           // F: 数量
-      i.price,         // G: 単価
-      i.price*i.qty,   // H: 小計
-      persons,         // I: 人数
-      discLabel,       // J: 割引
-      method,          // K: 支払方法
-      ageStr,          // L: 年齢層
-      natStr,          // M: 国籍
-      weatherStr,      // N: 天気
-      sale.id,         // O: 売上ID
+      dtStr,                   // A: 日時（全行。ソート用）
+      isFirst?dow:'',          // B: 曜日
+      isFirst?sale.total:'',   // C: 売上合計
+      i.name,                  // D: 商品名
+      catName,                 // E: カテゴリ
+      i.qty,                   // F: 数量
+      i.price,                 // G: 単価
+      i.price*i.qty,           // H: 小計
+      persons,                 // I: 人数
+      isFirst?discLabel:'',    // J: 割引
+      isFirst?method:'',       // K: 支払方法
+      isFirst?ageStr:'',       // L: 年齢層
+      isFirst?natStr:'',       // M: 国籍
+      isFirst?weatherStr:'',   // N: 天気
+      sale.id,                 // O: 売上ID（全行。重複排除用）
     ];
   });
 }
 
-// 全件同期（手動ボタン）
-async function syncSales(){
+// 同期メニュー表示
+function toggleSyncMenu(e){
+  e.stopPropagation();
+  const m=document.getElementById('sync-menu');
+  m.style.display=m.style.display==='none'?'block':'none';
+  if(m.style.display==='block'){
+    document.addEventListener('click',function closeSyncMenu(){m.style.display='none';document.removeEventListener('click',closeSyncMenu);},{once:true});
+  }
+}
+
+// 同期モード選択
+function doSync(mode){
+  document.getElementById('sync-menu').style.display='none';
+  var data=sales;
+  if(mode==='today'){
+    var t=localDateStr();
+    data=sales.filter(function(s){return localDateStr(new Date(s.datetime))===t;});
+  } else if(mode==='yesterday'){
+    var y=localDateStr(new Date(Date.now()-86400000));
+    data=sales.filter(function(s){return localDateStr(new Date(s.datetime))===y;});
+  } else if(mode==='filter'){
+    var from=document.getElementById('filter-from').value;
+    var to=document.getElementById('filter-to').value;
+    if(from)data=data.filter(function(s){return localDateStr(new Date(s.datetime))>=from;});
+    if(to)data=data.filter(function(s){return localDateStr(new Date(s.datetime))<=to;});
+  }
+  syncSalesData(data, mode==='all'?'全件':mode==='today'?'今日':mode==='yesterday'?'昨日':'絞込');
+}
+
+// 実際の同期処理
+async function syncSalesData(data, label){
   const url=(ld(KEYS.gas)||DEFAULT_GAS_URL)||'';
   if(!url){showToast('⚠ GAS URLを設定してください','#c00');switchTab('settings-pos');return;}
-  showToast('同期中...');
+  if(!data.length){showToast('⚠ 対象データがありません','#c00');return;}
+  showToast(label+'を同期中...',null,5000);
   try{
-    const rows=sales.reduce(function(acc,s){return acc.concat(saleToRows(s));}, []);
+    const rows=data.reduce(function(acc,s){return acc.concat(saleToRows(s));}, []);
+    var type=label==='全件'?'sync_all':'add_rows';
+    var body=JSON.stringify({type:type,rows:rows});
     let json=null;
     try{
-      const res=await fetch(url,{method:'POST',redirect:'follow',body:JSON.stringify({type:'sync_all',rows:rows})});
+      const res=await fetch(url,{method:'POST',redirect:'follow',body:body});
       json=await res.json();
     }catch(e){
-      await fetch(url,{method:'POST',mode:'no-cors',redirect:'follow',body:JSON.stringify({type:'sync_all',rows:rows})});
-      showToast('✓ 同期を送信しました（'+rows.length+'行）※GAS再デプロイで確認を推奨');
+      await fetch(url,{method:'POST',mode:'no-cors',redirect:'follow',body:body});
+      showToast('✓ '+label+'を送信しました（'+rows.length+'行）',null,4000);
       return;
     }
-    if(json&&json.status==='ok')showToast('✓ スプレッドシートに同期しました（'+rows.length+'行）');
+    if(json&&json.status==='ok')showToast('✓ '+label+'を同期しました（'+rows.length+'行）',null,4000);
     else showToast('⚠ エラー: '+(json&&json.message||'不明'),'#c00');
   }catch(e){showToast('⚠ 通信エラー: '+e.message,'#c00');}
 }
+// 旧関数名を維持（後方互換）
+async function syncSales(){ doSync('all'); }
 
-// 決済ごとに自動送信
+// 決済ごとに自動送信（新規）
 async function autoSyncSale(sale){
   const url=(ld(KEYS.gas)||DEFAULT_GAS_URL)||'';
   if(!url) return;
@@ -2239,7 +2283,22 @@ async function autoSyncSale(sale){
     }catch(e){
       await fetch(url,{method:'POST',mode:'no-cors',redirect:'follow',body:JSON.stringify({type:'add_rows',rows:rows})});
     }
-  }catch(e){/* 自動送信は失敗しても無視 */}
+  }catch(e){/* 失敗しても無視 */}
+}
+
+// ポップアップで変更した売上を再送（replace）
+async function autoSyncUpdatedSale(sale){
+  const url=(ld(KEYS.gas)||DEFAULT_GAS_URL)||'';
+  if(!url) return;
+  try{
+    const rows=saleToRows(sale);
+    var body=JSON.stringify({type:'replace_rows',sale_id:sale.id,rows:rows});
+    try{
+      await fetch(url,{method:'POST',redirect:'follow',body:body});
+    }catch(e){
+      await fetch(url,{method:'POST',mode:'no-cors',redirect:'follow',body:body});
+    }
+  }catch(e){/* 失敗しても無視 */}
 }
 
 // GAS接続テスト
@@ -2874,6 +2933,7 @@ function setSaleDetailAttr(key,val){
   const idx=r.attrs[key].indexOf(val);
   if(idx===-1) r.attrs[key].push(val); else r.attrs[key].splice(idx,1);
   sv(KEYS.sales,sales);
+  autoSyncUpdatedSale(r);
   openSaleDetail(currentDetailSaleId);
 }
 function toggleSaleFlag(){
