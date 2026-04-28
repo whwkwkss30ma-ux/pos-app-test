@@ -689,7 +689,9 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 <script>
 // ===== ストレージ =====
 const DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbwO3nrFBG7gDCwbRALgqReIO4Axyfm5mjfgIk9VLyh5o80_qSx8y70SqtYkuCtCpe8BXA/exec';
-const KEYS = {items:'pos_items',sales:'pos_sales',gas:'pos_gas',cats:'pos_cats',itemOrder:'pos_item_order',catOrder:'pos_cat_order',sites:'pos_sites',discounts:'pos_discounts',attrs:'pos_attrs',holds:'pos_holds'};
+const KEYS = {items:'pos_items',sales:'pos_sales',gas:'pos_gas',cats:'pos_cats',itemOrder:'pos_item_order',catOrder:'pos_cat_order',sites:'pos_sites',discounts:'pos_discounts',attrs:'pos_attrs',holds:'pos_holds',deviceId:'pos_device_id'};
+// デバイスID自動生成（初回のみ）
+(function(){var d=localStorage.getItem('pos_device_id');if(!d){d=Math.random().toString(36).slice(2,6).toUpperCase();localStorage.setItem('pos_device_id',d);}})();
 // ===== ストレージ（IndexedDB + localStorage二重書き） =====
 const DB_NAME='pos_db',DB_VER=1,STORE_NAME='kv';
 let _db=null;
@@ -1629,6 +1631,7 @@ function confirmPayment(){
     id:'s_'+Date.now(),datetime:new Date().toISOString(),
     items:cart.map(i=>({...i})),total,method:currentPayMethod,
     attrs:{...selectedAttrs},discount:activeDiscount,paid:isPaid,
+    device:localStorage.getItem('pos_device_id')||'',
   };
   sales.push(record);sv(KEYS.sales,sales);
   lastSaleId=record.id;
@@ -2212,9 +2215,10 @@ function saleToRows(sale){
       isFirst?method:'',       // K: 支払方法
       isFirst?ageStr:'',       // L: 年齢層
       isFirst?natStr:'',       // M: 国籍
-      isFirst?weatherStr:'',       // N: 天気
-      isFirst?sale.memo||'':'',   // O: メモ
-      sale.id,                    // P: 売上ID（全行。重複排除用）
+      isFirst?weatherStr:'',         // N: 天気
+      isFirst?sale.memo||'':'',     // O: メモ
+      sale.id,                      // P: 売上ID（全行。重複排除用）
+      isFirst?sale.device||'':'',   // Q: デバイスID
     ];
   });
 }
