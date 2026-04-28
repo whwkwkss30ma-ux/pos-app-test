@@ -1765,8 +1765,9 @@ function calcPeopleByFacility(filtered){
   filtered.forEach(function(r){
     r.items.forEach(function(i){
       var catId=i.cat||'';
-      if(facilityCatIds.indexOf(catId)===-1) return;
-      var catName=catNameMap[catId]||catId;
+      var inFacility=facilityCatIds.indexOf(catId)!==-1||!!i.isStay;
+      if(!inFacility) return;
+      var catName=catNameMap[catId]||catId||(i.isStay?'宿泊':'');
       var m=i.name.match(/[（(](\d+)人[）)]/);
       var count=m?parseInt(m[1])*i.qty:i.qty;
       result[catName]=(result[catName]||0)+count;
@@ -2193,8 +2194,8 @@ function saleToRows(sale){
   var weatherStr=(todayWeather||[]).map(function(k){var w=WEATHER_OPTIONS.find(function(x){return x.key===k;});return w?w.label:'';}).filter(Boolean).join('/');
   return (sale.items||[]).map(function(i,idx){
     var isFirst=idx===0;
-    var catName=catNameMap[i.cat||'']||i.cat||'';
-    var isF=FACILITY_CATS.indexOf(i.cat||'')!==-1;
+    var catName=catNameMap[i.cat||'']||i.cat||(i.isStay?'宿泊':'');
+    var isF=FACILITY_CATS.indexOf(i.cat||'')!==-1||!!i.isStay;
     var m=i.name.match(/[（(](\d+)人[）)]/);
     var persons=isF?(m?parseInt(m[1])*i.qty:i.qty):0;
     return [
@@ -2864,6 +2865,7 @@ function selectStayPeople(n){
     paidLabel: paidLabel,
     free_mura: false,
     isStay: true,
+    cat: pendingStayItem.cat || '',
     catColor: cat ? cat.bg : '#fff'
   });
   document.getElementById('stay-modal').classList.remove('open');
