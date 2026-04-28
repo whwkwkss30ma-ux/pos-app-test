@@ -403,8 +403,8 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 <div class="tab-content" id="tab-settings-pos">
   <!-- バージョン情報 -->
   <div class="settings-section" id="pos-version-info" style="background:#f0f4e8;padding:10px 14px;">
-    <div style="font-size:12px;color:var(--accent);font-weight:700;">POSレジ ver.1.0</div>
-    <div style="font-size:11px;color:var(--text2);margin-top:2px;">適用: 2026/04/25 22:00 &nbsp;|&nbsp; <span style="color:var(--accent2);font-weight:600;">TEST版</span></div>
+    <div style="font-size:12px;color:var(--accent);font-weight:700;">POSレジ ver.-</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:2px;">確認中... &nbsp;|&nbsp; <span style="color:var(--accent);font-weight:600;">main版</span></div>
   </div>
 
   <!-- カテゴリー管理 -->
@@ -693,6 +693,9 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 <div class="toast" id="toast"></div>
 
 <script>
+// ===== バージョン種別（main / test） =====
+const APP_VERSION_TYPE = 'main';
+
 // ===== ストレージ =====
 const DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbwO3nrFBG7gDCwbRALgqReIO4Axyfm5mjfgIk9VLyh5o80_qSx8y70SqtYkuCtCpe8BXA/exec';
 const KEYS = {items:'pos_items',sales:'pos_sales',gas:'pos_gas',cats:'pos_cats',itemOrder:'pos_item_order',catOrder:'pos_cat_order',sites:'pos_sites',discounts:'pos_discounts',attrs:'pos_attrs',holds:'pos_holds',deviceId:'pos_device_id'};
@@ -932,7 +935,7 @@ function switchTab(t) {
     }
     switchSalesTab(currentSalesTab||'detail');
   }
-  if (t==='settings-pos') { renderSettings(); initDeviceNameField(); }
+  if (t==='settings-pos') { renderSettings(); initDeviceNameField(); initVersionInfo(); }
   if (t==='agreement') loadAgreementText();
   if (t==='timer') initTimer();
 }
@@ -2357,6 +2360,41 @@ function initDeviceNameField(){
   var curr=document.getElementById('pos-device-name-current');
   if(el) el.value=dname;
   if(curr) curr.textContent=dname?'現在の端末名: '+dname:'（未設定）';
+}
+function initVersionInfo(){
+  var box=document.getElementById('pos-version-info');
+  if(!box) return;
+  var typeColor=APP_VERSION_TYPE==='main'?'var(--accent)':'var(--accent2)';
+  var typeLabel=APP_VERSION_TYPE==='main'?'main版':'TEST版';
+  fetch('https://api.github.com/repos/whwkwkss30ma-ux/pos-app-test/commits?per_page=1&sha=main',{headers:{'Accept':'application/vnd.github.v3+json'}})
+    .then(function(res){
+      var link=res.headers.get('Link')||'';
+      var m=link.match(/[?&]page=(\d+)>;\s*rel="last"/);
+      var count=m?parseInt(m[1],10):null;
+      return res.json().then(function(data){return{count:count,data:data};});
+    })
+    .then(function(r){
+      var count=r.count;
+      var commit=r.data&&r.data[0]&&r.data[0].commit;
+      var dateStr='';
+      if(commit&&commit.committer&&commit.committer.date){
+        var d=new Date(commit.committer.date);
+        // JST (+9)
+        var jst=new Date(d.getTime()+9*60*60*1000);
+        dateStr=jst.getUTCFullYear()+'/'+(jst.getUTCMonth()+1).toString().padStart(2,'0')+'/'+jst.getUTCDate().toString().padStart(2,'0')+' '+jst.getUTCHours().toString().padStart(2,'0')+':'+jst.getUTCMinutes().toString().padStart(2,'0');
+      }
+      var verStr=count?'ver.'+count:'ver.-';
+      var b=document.getElementById('pos-version-info');
+      if(!b) return;
+      b.innerHTML='<div style="font-size:12px;color:var(--accent);font-weight:700;">POSレジ '+verStr+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:2px;">更新: '+dateStr+' &nbsp;|&nbsp; <span style="color:'+typeColor+';font-weight:600;">'+typeLabel+'</span></div>';
+    })
+    .catch(function(){
+      var b=document.getElementById('pos-version-info');
+      if(!b) return;
+      b.innerHTML='<div style="font-size:12px;color:var(--accent);font-weight:700;">POSレジ ver.-</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:2px;"><span style="color:'+typeColor+';font-weight:600;">'+typeLabel+'</span> (取得失敗)</div>';
+    });
 }
 function savePosGasUrl(){
   const el=document.getElementById('pos-gas-url');
