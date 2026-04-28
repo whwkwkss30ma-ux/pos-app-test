@@ -2142,74 +2142,70 @@ function clearFilter(){
   renderSales();
 }
 
-// 1件の売上レコードから人数を計算（施設カテゴリーのみ）
-function calcSalePersons(r){
-  var facilityCatIds=['cat_walk','cat_tree_day','cat_bbq','cat_stay_tree','cat_stay_dome','cat_stay_tent','cat_stay_hm'];
-  var total=0;
-  (r.items||[]).forEach(function(i){
-    if(facilityCatIds.indexOf(i.cat||'')===-1) return;
-    var m=i.name.match(/[（(](\d+)人[）)]/);
-    total+=m?parseInt(m[1])*i.qty:i.qty;
-  });
-  return total;
-}
-
 function exportCSV(){
   if(!sales.length){showToast('⚠ 売上データがありません','#c00');return;}
   const now=new Date();
   const ts=now.getFullYear()+('0'+(now.getMonth()+1)).slice(-2)+('0'+now.getDate()).slice(-2)+'_'+('0'+now.getHours()).slice(-2)+('0'+now.getMinutes()).slice(-2);
   const q=function(v){return '"'+String(v===null||v===undefined?'':v).replace(/"/g,'""')+'"';};
-  const DOW=['日','月','火','水','木','金','土'];
-  function fmtDate(dt){
-    const d=new Date(dt); if(isNaN(d)) return dt;
-    const mo=d.getMonth()+1,day=d.getDate(),h=d.getHours(),mi=d.getMinutes();
-    return d.getFullYear()+'/'+(mo<10?'0':'')+mo+'/'+(day<10?'0':'')+day+' ('+(DOW[d.getDay()]||'')+') '+(h<10?'0':'')+h+':'+(mi<10?'0':'')+mi;
-  }
-  const weatherStr=(todayWeather||[]).map(function(k){var w=WEATHER_OPTIONS.find(function(x){return x.key===k;});return w?w.label:'';}).filter(Boolean).join('/');
-  // デバイス間で合算しやすいフラット形式（1行1売上）
-  const header=['日時','曜日','金額','人数','商品内訳','割引','支払方法','年齢層','国籍','天気','売上ID'];
-  const rows=[header];
-  sales.forEach(function(r){
-    var d=new Date(r.datetime);
-    var dow=isNaN(d)?'':DOW[d.getDay()]||'';
-    var persons=calcSalePersons(r);
-    var itemStr=r.items.map(function(i){return i.name+(i.qty>1?'x'+i.qty:'')+'('+i.price*i.qty+'円)';}).join(' / ');
-    var ml={cash:'現金',card:'クレジットカード',other:'電子決済'}[r.method]||r.method||'';
-    var discItems=ld(KEYS.discounts)||discountItems;
-    var dl=r.discount?(discItems.find(function(x){return x.key===r.discount;})||{}).label||r.discount:'';
-    var ages=Array.isArray(r.attrs&&r.attrs.age)?r.attrs.age:[r.attrs&&r.attrs.age].filter(Boolean);
-    var nats=Array.isArray(r.attrs&&r.attrs.nationality)?r.attrs.nationality:[r.attrs&&r.attrs.nationality].filter(Boolean);
-    rows.push([fmtDate(r.datetime),dow,r.total,persons,itemStr,dl,ml,ages.join('・'),nats.join('・'),weatherStr,r.id||'']);
+  // GASシートと同じ列構成（1行1商品）でエクスポート
+  const header=['売上ID','日時','曜日','売上合計','商品名','カテゴリ','数量','単価','小計','人数','割引','支払方法','年齢層','国籍','天気'];
+  var allRows=[header];
+  sales.forEach(function(sale){
+    saleToRows(sale).forEach(function(row){allRows.push(row);});
   });
-  var csv=rows.map(function(r){return r.map(q).join(',');}).join('\n');
+  var csv=allRows.map(function(r){return r.map(q).join(',');}).join('\n');
   var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='売上_'+ts+'.csv';a.click();
   showToast('✓ CSVをダウンロードしました');
 }
 
-// 売上1件をGASに送信する行データに変換
-function saleToRow(sale){
-  const discountItems2 = ld(KEYS.discounts)||discountItems;
-  const discLabel = sale.discount ? (discountItems2.find(d=>d.key===sale.discount)?.label||sale.discount) : '';
-  const itemParts = (sale.items||[]).map(i=>{
-    const it=items.find(x=>x.id===i.id);
-    const name=it?it.name:(i.name||i.id);
-    return name+(i.qty>1?'×'+i.qty:'')+(i.price===0?'(無料)':'');
+// 売上1件を複数行に変換（1行1商品 — CSV・GAS共通フォーマット）
+// 列: 売上ID, 日時, 曜日, 売上合計, 商品名, カテゴリ, 数量, 単価, 小計, 人数, 割引, 支払方法, 年齢層, 国籍, 天気
+function saleToRows(sale){
+  var FACILITY_CATS=['cat_walk','cat_tree_day','cat_bbq','cat_stay_tree','cat_stay_dome','cat_stay_tent','cat_stay_hm'];
+  var discountItems2=ld(KEYS.discounts)||discountItems;
+  var discLabel=sale.discount?(discountItems2.find(function(d){return d.key===sale.discount;})||{}).label||sale.discount:'';
+  var method={cash:'現金',card:'クレジットカード',other:'電子決済'}[sale.method]||sale.method||'';
+  var attrs=sale.attrs||{};
+  var ages=Array.isArray(attrs.age)?attrs.age:(attrs.age?[attrs.age]:[]);
+  var nats=Array.isArray(attrs.nationality)?attrs.nationality:(attrs.nationality?[attrs.nationality]:[]);
+  var ageStr=ages.join('・');
+  var natStr=nats.join('・');
+  var dt=new Date(sale.datetime);
+  var DOW=['日','月','火','水','木','金','土'];
+  var dtStr='',dow='';
+  if(!isNaN(dt)){
+    var mo=dt.getMonth()+1,dy=dt.getDate(),h=dt.getHours(),mi=dt.getMinutes();
+    dtStr=dt.getFullYear()+'/'+(mo<10?'0':'')+mo+'/'+(dy<10?'0':'')+dy+' ('+(DOW[dt.getDay()]||'')+') '+(h<10?'0':'')+h+':'+(mi<10?'0':'')+mi;
+    dow=DOW[dt.getDay()]||'';
+  }
+  var catNameMap={};
+  cats.forEach(function(c){catNameMap[c.id]=c.name;});
+  var weatherStr=(todayWeather||[]).map(function(k){var w=WEATHER_OPTIONS.find(function(x){return x.key===k;});return w?w.label:'';}).filter(Boolean).join('/');
+  return (sale.items||[]).map(function(i){
+    var catName=catNameMap[i.cat||'']||i.cat||'';
+    var isF=FACILITY_CATS.indexOf(i.cat||'')!==-1;
+    var m=i.name.match(/[（(](\d+)人[）)]/);
+    var persons=isF?(m?parseInt(m[1])*i.qty:i.qty):0;
+    return [
+      sale.id,         // A: 売上ID
+      dtStr,           // B: 日時
+      dow,             // C: 曜日
+      sale.total,      // D: 売上合計
+      i.name,          // E: 商品名
+      catName,         // F: カテゴリ
+      i.qty,           // G: 数量
+      i.price,         // H: 単価
+      i.price*i.qty,   // I: 小計
+      persons,         // J: 人数
+      discLabel,       // K: 割引
+      method,          // L: 支払方法
+      ageStr,          // M: 年齢層
+      natStr,          // N: 国籍
+      weatherStr,      // O: 天気
+    ];
   });
-  return [
-    sale.id,
-    new Date(sale.datetime).toLocaleString('ja-JP'),
-    sale.total,
-    {cash:'現金',card:'クレジット',other:'電子決済'}[sale.method]||sale.method||'',
-    sale.paid?'支払済み':'',
-    discLabel,
-    '',
-    itemParts.join('、'),
-    '',
-    '',
-    sale.flagged?'★':'',
-  ];
 }
 
 // 全件同期（手動ボタン）
@@ -2218,34 +2214,31 @@ async function syncSales(){
   if(!url){showToast('⚠ GAS URLを設定してください','#c00');switchTab('settings-pos');return;}
   showToast('同期中...');
   try{
-    const rows=sales.map(saleToRow);
+    const rows=sales.reduce(function(acc,s){return acc.concat(saleToRows(s));}, []);
     let json=null;
     try{
-      // まず通常モードで試みる（レスポンス取得可能）
-      const res=await fetch(url,{method:'POST',redirect:'follow',body:JSON.stringify({type:'sync_all',rows})});
+      const res=await fetch(url,{method:'POST',redirect:'follow',body:JSON.stringify({type:'sync_all',rows:rows})});
       json=await res.json();
     }catch(e){
-      // CORSエラー等の場合はno-corsで再送（レスポンス確認不可だが書き込みは成功する）
-      await fetch(url,{method:'POST',mode:'no-cors',redirect:'follow',body:JSON.stringify({type:'sync_all',rows})});
-      showToast('✓ 同期を送信しました（'+rows.length+'件）※GAS再デプロイで確認を推奨');
+      await fetch(url,{method:'POST',mode:'no-cors',redirect:'follow',body:JSON.stringify({type:'sync_all',rows:rows})});
+      showToast('✓ 同期を送信しました（'+rows.length+'行）※GAS再デプロイで確認を推奨');
       return;
     }
-    if(json&&json.status==='ok')showToast('✓ スプレッドシートに同期しました（'+rows.length+'件）');
+    if(json&&json.status==='ok')showToast('✓ スプレッドシートに同期しました（'+rows.length+'行）');
     else showToast('⚠ エラー: '+(json&&json.message||'不明'),'#c00');
   }catch(e){showToast('⚠ 通信エラー: '+e.message,'#c00');}
 }
 
-// 決済ごとに1件自動送信
+// 決済ごとに自動送信
 async function autoSyncSale(sale){
   const url=(ld(KEYS.gas)||DEFAULT_GAS_URL)||'';
   if(!url) return;
   try{
-    const row=saleToRow(sale);
+    const rows=saleToRows(sale);
     try{
-      await fetch(url,{method:'POST',redirect:'follow',body:JSON.stringify({type:'add_row',row})});
+      await fetch(url,{method:'POST',redirect:'follow',body:JSON.stringify({type:'add_rows',rows:rows})});
     }catch(e){
-      // CORSエラー時はno-corsで再送
-      await fetch(url,{method:'POST',mode:'no-cors',redirect:'follow',body:JSON.stringify({type:'add_row',row})});
+      await fetch(url,{method:'POST',mode:'no-cors',redirect:'follow',body:JSON.stringify({type:'add_rows',rows:rows})});
     }
   }catch(e){/* 自動送信は失敗しても無視 */}
 }
