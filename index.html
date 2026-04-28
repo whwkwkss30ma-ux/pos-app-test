@@ -502,12 +502,10 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
     <h3>📊 スプレッドシート連携</h3>
     <div class="form-row"><label>GAS WebアプリURL</label><input type="text" id="pos-gas-url" placeholder="https://script.google.com/macros/s/..."></div>
     <div class="form-row" style="margin-top:10px;">
-      <label>端末名（スプレッドシートの●に表示）</label>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input type="text" id="pos-device-name" placeholder="例：レジ1、カウンター" style="flex:1;">
-        <button class="btn-primary2" onclick="saveDeviceName()">保存</button>
-      </div>
-      <div id="pos-device-id-display" style="font-size:10px;color:var(--text2);margin-top:4px;"></div>
+      <label>端末名（スプレッドシートに表示）</label>
+      <input type="text" id="pos-device-name" placeholder="例：レジ1、カウンター" style="width:100%;padding:10px;font-size:15px;box-sizing:border-box;margin-bottom:8px;">
+      <button class="btn-primary2" onclick="saveDeviceName()" style="width:100%;padding:10px;font-size:14px;">保存</button>
+      <div id="pos-device-name-current" style="margin-top:10px;font-size:14px;font-weight:700;color:var(--accent);"></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
       <button class="btn-primary2" onclick="savePosGasUrl()">URLを保存</button>
@@ -2354,12 +2352,11 @@ function saveDeviceName(){
   initDeviceNameField();
 }
 function initDeviceNameField(){
-  var did=localStorage.getItem('pos_device_id')||'';
   var dname=localStorage.getItem('pos_device_name')||'';
   var el=document.getElementById('pos-device-name');
-  var disp=document.getElementById('pos-device-id-display');
+  var curr=document.getElementById('pos-device-name-current');
   if(el) el.value=dname;
-  if(disp) disp.textContent='端末ID: '+did;
+  if(curr) curr.textContent=dname?'現在の端末名: '+dname:'（未設定）';
 }
 function savePosGasUrl(){
   const el=document.getElementById('pos-gas-url');
