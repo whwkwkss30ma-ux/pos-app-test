@@ -681,7 +681,7 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);
 
 <script>
 // ===== ストレージ =====
-const DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbx1mVBQSDB4qesbNibcMsfAcjDDfPTk6TYNyxJLUDPJ1i92eIG65X-KEGiqt3f-edbT_Q/exec';
+const DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbwO3nrFBG7gDCwbRALgqReIO4Axyfm5mjfgIk9VLyh5o80_qSx8y70SqtYkuCtCpe8BXA/exec';
 const KEYS = {items:'pos_items',sales:'pos_sales',gas:'pos_gas',cats:'pos_cats',itemOrder:'pos_item_order',catOrder:'pos_cat_order',sites:'pos_sites',discounts:'pos_discounts',attrs:'pos_attrs',holds:'pos_holds'};
 // ===== ストレージ（IndexedDB + localStorage二重書き） =====
 const DB_NAME='pos_db',DB_VER=1,STORE_NAME='kv';
@@ -2247,15 +2247,24 @@ async function autoSyncSale(sale){
 async function testGasConnection(){
   const url=document.getElementById('pos-gas-url').value.trim()||ld(KEYS.gas)||DEFAULT_GAS_URL||'';
   if(!url){showToast('⚠ URLを入力してください','#c00');return;}
-  showToast('接続確認中...');
+  showToast('接続確認中...',null,5000);
   try{
     const res=await fetch(url,{method:'GET',redirect:'follow'});
     const json=await res.json();
-    if(json.status==='ok')showToast('✅ GAS接続OK（'+json.message+'）');
-    else showToast('⚠ 応答異常: '+JSON.stringify(json),'#c00');
+    if(json.status==='ok')showToast('✅ GAS接続OK（'+json.message+'）',null,5000);
+    else showToast('⚠ 応答異常: '+JSON.stringify(json),'#c00',6000);
   }catch(e){
-    showToast('⚠ 接続失敗: '+e.message+' → GASを再デプロイしてください','#c00');
+    showToast('⚠ 接続失敗: '+e.message,'#c00',6000);
   }
+}
+
+function savePosGasUrl(){
+  const el=document.getElementById('pos-gas-url');
+  if(!el) return;
+  const url=el.value.trim();
+  if(!url){showToast('⚠ URLを入力してください','#c00');return;}
+  sv(KEYS.gas,url);
+  showToast('✅ GAS URLを保存しました',null,4000);
 }
 
 // ===== 設定 =====
@@ -3010,9 +3019,9 @@ function importSettings(e){
   };
   reader.readAsText(file);
 }
-function showToast(msg,col){
+function showToast(msg,col,duration){
   const t=document.getElementById('toast');t.textContent=msg;t.style.background=col||'#1a7a3a';
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),duration||2200);
 }
 
 
